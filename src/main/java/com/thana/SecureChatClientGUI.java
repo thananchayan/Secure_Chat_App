@@ -165,6 +165,17 @@ public class SecureChatClientGUI extends JFrame {
             boolean valid = CryptoUtils.verifySignature(msgText, sig, senderKey);
             appendText("[📨] " + msg.getSender() + ": " + msgText + (valid ? " ✅" : " ❌") + "\n");
           }
+          if (obj instanceof UserLeft left) {
+            String user = left.getClientName();
+            clientPublicKeys.remove(user);
+
+            SwingUtilities.invokeLater(() -> {
+              userList.removeItem(user);
+              appendText("[👋] " + user + " has left the chat.\n");
+            });
+            continue;
+          }
+
         }
       } catch (Exception e) {
         appendText("[X] Disconnected from server.\n");
