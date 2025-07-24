@@ -1,10 +1,19 @@
-package com.thana;
+package com.thana.server;
 
-import java.io.*;
-import java.net.*;
+import com.thana.core.AuthRequest;
+import com.thana.core.Message;
+import com.thana.core.PublicKeyUpdate;
+import com.thana.core.UserLeft;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.security.PublicKey;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.Setter;
 
 public class Server {
@@ -37,11 +46,15 @@ public class Server {
   }
 
   private static void log(String msg) {
-    if (logger != null) logger.log(msg);
-    else System.out.println(msg);
+    if (logger != null) {
+      logger.log(msg);
+    } else {
+      System.out.println(msg);
+    }
   }
 
   static class ClientHandler implements Runnable {
+
     private final Socket socket;
     private ObjectInputStream in;
     private ObjectOutputStream out;
@@ -76,6 +89,25 @@ public class Server {
         out = new ObjectOutputStream(socket.getOutputStream());
         in = new ObjectInputStream(socket.getInputStream());
 
+        // Step 1: Authenticate the client
+        AuthRequest auth = (AuthRequest) in.readObject();
+        String username = auth.getUsername();
+        String password = auth.getPassword();
+
+        boolean success = switch (auth.getType()) {
+          case LOGIN -> UserStore.login(username, password);
+          case SIGNUP -> UserStore.register(username, password);
+        };
+
+        if (!success) {
+          out.writeObject("AUTH_FAILED");
+          socket.close();
+          return;
+        }
+
+        out.writeObject("AUTH_SUCCESS");
+
+        // Step 2: Proceed with key exchange
         clientName = (String) in.readObject();
         publicKey = (PublicKey) in.readObject();
 
@@ -83,7 +115,9 @@ public class Server {
         publicKeys.put(clientName, publicKey);
 
         log("[↑] " + clientName + " joined the chat.");
-        if (logger != null) logger.updateUserList();
+        if (logger != null) {
+          logger.updateUserList();
+        }
 
         for (ClientHandler handler : clients.values()) {
           if (!handler.clientName.equals(clientName)) {
@@ -113,14 +147,17 @@ public class Server {
             clients.remove(clientName);
             publicKeys.remove(clientName);
             log("[-] " + clientName + " left the chat.");
-            if (logger != null) logger.updateUserList();
+            if (logger != null) {
+              logger.updateUserList();
+            }
 
             for (ClientHandler handler : clients.values()) {
               handler.sendUserLeftNotification(clientName);
             }
           }
           socket.close();
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
       }
     }
   }

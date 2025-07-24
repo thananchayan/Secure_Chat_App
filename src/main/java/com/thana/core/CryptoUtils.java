@@ -1,4 +1,4 @@
-package com.thana;
+package com.thana.core;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;

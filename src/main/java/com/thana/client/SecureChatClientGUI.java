@@ -1,6 +1,12 @@
-package com.thana;
+package com.thana.client;
 
+import com.thana.core.AuthRequest;
+import com.thana.core.CryptoUtils;
+import com.thana.core.Message;
+import com.thana.core.PublicKeyUpdate;
+import com.thana.core.UserLeft;
 import java.awt.BorderLayout;
+import java.awt.GridLayout;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -20,8 +26,10 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -49,36 +57,77 @@ public class SecureChatClientGUI extends JFrame {
   }
 
   private void setupLogin() {
-    JTextField nameField = new JTextField();
-    int result = JOptionPane.showConfirmDialog(null, nameField, "Enter your username",
-        JOptionPane.OK_CANCEL_OPTION);
+    String[] options = {"Login", "Signup"};
+    int action = JOptionPane.showOptionDialog(null, "Select an option:", "Authentication",
+        JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
 
-    if (result == JOptionPane.OK_OPTION) {
-      myName = nameField.getText().trim();
-      if (myName.isEmpty()) {
-        System.exit(0);
-      }
-      setupSocket();
-      setupGUI();
-      listenForMessages();
-    } else {
+    if (action == -1) {
+      System.exit(0); // Cancel
+    }
+
+    JPanel panel = new JPanel(new BorderLayout(5, 5));
+    JPanel labels = new JPanel(new GridLayout(0, 1));
+    labels.add(new JLabel("Username:"));
+    labels.add(new JLabel("Password:"));
+    panel.add(labels, BorderLayout.WEST);
+
+    JPanel controls = new JPanel(new GridLayout(0, 1));
+    JTextField usernameField = new JTextField();
+    JPasswordField passwordField = new JPasswordField();
+    controls.add(usernameField);
+    controls.add(passwordField);
+    panel.add(controls, BorderLayout.CENTER);
+
+    int result = JOptionPane.showConfirmDialog(null, panel,
+        options[action], JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+    if (result != JOptionPane.OK_OPTION) {
       System.exit(0);
     }
+
+    String username = usernameField.getText().trim();
+    String password = new String(passwordField.getPassword()).trim();
+
+    if (username.isEmpty() || password.isEmpty()) {
+      showError("Username and password cannot be empty.");
+      System.exit(0);
+    }
+
+    setupSocket(username, password, options[action].equals("Login")
+        ? AuthRequest.Type.LOGIN : AuthRequest.Type.SIGNUP);
   }
 
-  private void setupSocket() {
+  private void setupSocket(String username, String password, AuthRequest.Type type) {
     try {
       Socket socket = new Socket("localhost", 1257);
       out = new ObjectOutputStream(socket.getOutputStream());
       in = new ObjectInputStream(socket.getInputStream());
 
+      // Send authentication request
+      out.writeObject(new AuthRequest(username, password, type));
+      out.flush();
+
+      // Read server response
+      String response = (String) in.readObject();
+      if (!response.equals("AUTH_SUCCESS")) {
+        showError("Authentication failed: " + response);
+        System.exit(0);
+      }
+
+      this.myName = username;
+
+      // Generate RSA keys after authentication
       KeyPair myKeys = CryptoUtils.generateRSAKeyPair();
       myPrivateKey = myKeys.getPrivate();
       myPublicKey = myKeys.getPublic();
 
+      // Send keys
       out.writeObject(myName);
       out.writeObject(myPublicKey);
       out.flush();
+
+      setupGUI();
+      listenForMessages();
 
     } catch (Exception e) {
       showError("Connection error: " + e.getMessage());

@@ -1,4 +1,4 @@
-package com.thana;
+package com.thana.core;
 
 import java.io.Serializable;
 import lombok.AllArgsConstructor;
