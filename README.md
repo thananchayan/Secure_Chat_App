@@ -1,6 +1,6 @@
 # 🔐 Secure Encrypted Chat Application (Java + Swing)
 
-This is a **secure multi-client chat system** built using Java and Swing, implementing **hybrid encryption (AES + RSA)**, **digital signatures**, **mutual authentication**, and **replay attack prevention**. It includes both **client and server GUIs** and is suitable for academic and learning purposes in secure communication.
+This is a **secure multi-client chat system** built using Java and Swing, implementing **hybrid encryption (AES + RSA)**, **digital signatures**, **mutual authentication**, and **replay attack prevention**. It includes both **client and server GUIs**.
 
 ---
 
